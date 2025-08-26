@@ -95,12 +95,35 @@ mysql> exit
 退出 `quit;` 或 `\q;` 一样的效果
 
 ### 备份
+<!--rehype:wrap-class=col-span-2-->
 
-创建备份
+备份特定表
 
-```sql
-mysqldump -u user -p db_name > db.sql
+```bash
+mysqldump -u user -p db_name table1 table2 > tables_backup.sql
 ```
+<!--rehype:className=wrap-text -->
+
+备份多个数据库
+
+```bash
+mysqldump -u user -p --databases db1 db2 > multi_backup.sql
+```
+<!--rehype:className=wrap-text -->
+
+备份所有数据库
+
+```bash
+mysqldump -u user -p --all-databases > all_backup.sql
+```
+<!--rehype:className=wrap-text -->
+
+备份时压缩
+
+```bash
+mysqldump -u user -p db_name | gzip > db_backup.sql.gz
+```
+<!--rehype:className=wrap-text -->
 
 导出不带架构的数据库
 
@@ -109,11 +132,116 @@ mysqldump -u user -p db_name --no-data=true --add-drop-table=false > db.sql
 ```
 <!--rehype:className=wrap-text -->
 
-恢复备份
+仅导出数据
 
-```shell
-mysql -u user -p db_name < db.sql
+```bash
+mysqldump -u user -p --no-create-info db_name > only_data.sql
 ```
+<!--rehype:className=wrap-text -->
+
+仅导出结构
+
+```bash
+mysqldump -u user -p --no-data db_name > only_schema.sql
+```
+<!--rehype:className=wrap-text -->
+
+导出时忽略某些表
+
+```bash
+mysqldump -u user -p db_name --ignore-table=db_name.table1 --ignore-table=db_name.table2 > partial.sql
+```
+<!--rehype:className=wrap-text -->
+
+### 恢复备份
+<!--rehype:wrap-class=row-span-2-->
+
+恢复单个数据库备份
+
+```bash
+mysql -u user -p db_name < db_backup.sql
+```
+
+恢复多个数据库（带 `--databases` 选项备份的）
+
+```bash
+mysql -u user -p < multi_backup.sql
+```
+
+恢复所有数据库（使用 `--all-databases` 备份的）
+
+```bash
+mysql -u user -p < all_backup.sql
+```
+
+从 gzip 压缩的备份恢复
+
+```bash
+gunzip < db_backup.sql.gz | mysql -u user -p db_name
+
+# 或：
+
+zcat db_backup.sql.gz | mysql -u user -p db_name
+```
+<!--rehype:className=wrap-text -->
+
+恢复单张表（从 `mysqldump` 单表导出文件）
+
+```bash
+mysql -u user -p db_name < table1_backup.sql
+```
+<!--rehype:className=wrap-text -->
+
+先创建数据库再导入（如果备份中不包含 CREATE DATABASE）
+
+```bash
+mysql -u user -p -e "CREATE DATABASE IF NOT EXISTS db_name;"
+
+mysql -u user -p db_name < db_backup.sql
+```
+<!--rehype:className=wrap-text -->
+
+恢复指定字符集（防止乱码）
+
+```bash
+mysql --default-character-set=utf8mb4 -u user -p db_name < db_backup.sql
+```
+<!--rehype:className=wrap-text -->
+
+恢复时跳过某些错误（如重复键）
+
+```bash
+mysql -u user -p --force db_name < db_backup.sql
+```
+<!--rehype:className=wrap-text -->
+
+恢复到远程主机数据库
+
+```bash
+mysql -h remote_host -u user -p db_name < db_backup.sql
+```
+<!--rehype:className=wrap-text -->
+
+### 错误处理（Error Handling）
+<!--rehype:wrap-class=col-span-2-->
+
+| 语句                          | 说明                             |
+| :--------------------------- | :------------------------------ |
+| `SHOW ERRORS;`               | 显示最近的错误                   |
+| `SHOW WARNINGS;`             | 显示最近的警告                   |
+| `SHOW COUNT(*) ERRORS;`      | 显示错误数量                     |
+| `SHOW COUNT(*) WARNINGS;`    | 显示警告数量                     |
+| `EXPLAIN SELECT ...;`        | 分析查询执行计划                 |
+| `SHOW ENGINE INNODB STATUS;` | 查看 InnoDB 状态和死锁信息       |
+| `SHOW PROFILE;` | 显示语句的资源消耗（需开启 profiling） |
+| `SHOW PROFILES;` | 显示所有已记录的 profiling 数据 |
+| `SHOW PROCESSLIST;` | 查看当前线程，排查长时间运行或阻塞的语句 |
+| `SHOW STATUS LIKE 'Last_error%';` | 查看上次语句执行的错误信息 |
+| `SHOW VARIABLES LIKE 'log_%';` | 查看错误日志相关配置 |
+| `SHOW BINARY LOGS;` | 查看二进制日志，排查事务或复制异常 |
+| `SHOW SLAVE STATUS\G` | 查看主从复制错误（用于主从复制场景） |
+| `SHOW MASTER STATUS;` | 查看主库状态，辅助分析复制问题 |
+<!--rehype:className=left-align-->
 
 MySQL 示例
 ------
@@ -167,10 +295,11 @@ ALTER TABLE t DROP constraint;
 ALTER TABLE t1 RENAME TO t2;
 ```
 
-将列c1重命名为c2
+将列 c1 重命名为 c2
 
 ```sql
-ALTER TABLE t1 RENAME c1 TO c2 ;
+ALTER TABLE t1 CHANGE c1 c2 datatype;
+ALTER TABLE table_name RENAME COLUMN c1 TO c2;
 ```
 
 将列c1的数据类型改为datatype
@@ -600,6 +729,81 @@ MySQL 数据类型
 | `FLOAT`       | Decimal (precise to 23 digits)                                |
 | `DOUBLE`      | Decimal (24 to 53 digits)                                     |
 | `DECIMAL`     | "­DOU­BLE­" stored as string                                  |
+
+## 函数
+
+### 聚合函数
+
+| 函数      | 解释                           |
+| :--------- |:-------------------------------|
+| `SUM()`   | 计算一列值的总和               |
+| `AVG()`   | 计算一列值的平均值             |
+| `COUNT()` | 计算行数，可选择性地忽略NULL值 |
+| `MAX()`   | 找出一列的最大值               |
+| `MIN()`   | 找出一列的最小值               |
+| `GROUP_CONCAT()` | 将一组值连接成单一字符串，可指定分隔符，常用于分组。|
+
+### 数学函数
+
+<!--rehype:wrap-class=col-span-2 -->
+
+| 函数           | 解释                                           | 示例语法                | 结果     |
+| :-------------- | :---------------------------------------------- | :----------------------- | :-------- |
+| `ABS(x)`       | 返回数值的绝对值                               | `ABS(-5)`               | 5        |
+| `ROUND(x,y)`   | 四舍五入到指定的小数位数，y为小数位数，默认为0 | `ROUND(3.1415,2)`       | 3.14     |
+| `FLOOR(x)`     | 向下取整至最接近的整数                         | `FLOOR(3.7)`            | 3        |
+| `CEIL(x)`      | 向上取整至最接近的整数                         | `CEIL(3.3)`             | 4        |
+| `SQRT(x)`      | 返回一个数的平方根                             | `SQRT(16)`              | 4        |
+| `MOD(x,y)`     | 返回x除以y的余数                               | `MOD(10,3)`             | 1        |
+| `RAND([seed])` | 返回0到1之间的随机数，可选种子值               | `RAND()` 或 `RAND(123)` | 0.345... |
+
+### 日期和时间函数
+
+| 函数            | 解释                       |
+| :--------------- | :-------------------------- |
+| `NOW()`         | 返回当前日期和时间         |
+| `CURDATE()`     | 返回当前日期               |
+| `CURTIME()`     | 返回当前时间               |
+| `DATE_FORMAT()` | 格式化日期时间输出         |
+| `DATEDIFF()`    | 计算两个日期之间相差的天数 |
+| `STR_TO_DATE()` | 将字符串转换为日期格式     |
+
+### 字符串函数
+
+<!--rehype:wrap-class=col-span-2 -->
+
+| 函数                           | 解释                     | 示例语法                     | 结果            |
+| :------------------------------ | :------------------------ | ---------------------------- | --------------- |
+| `CONCAT(s1,s2,...)`            | 连接两个或更多字符串     | `CONCAT('Hello, ','World!')` | 'Hello, World!' |
+| `LOWER(str)`                   | 转换为小写               | `LOWER('HELLO')`             | 'hello'         |
+| `UPPER(str)`                   | 转换为大写               | `UPPER('world')`             | 'WORLD'         |
+| `TRIM(str)`                    | 去除字符串两端空格       | `TRIM('  Hello  ')`          | 'Hello'         |
+| `LEFT(str,len)`                | 提取字符串左侧的若干字符 | `LEFT('Hello', 3)`           | 'Hel'           |
+| `RIGHT(str,len)`               | 提取字符串右侧的若干字符 | `RIGHT('Hello', 2)`          | 'lo'            |
+| `SUBSTR(str,pos,len)`          | 提取字符串中的一部分     | `SUBSTR('Hello', 2, 3)`      | 'ell'           |
+| `REPLACE(str,from_str,to_str)` | 替换字符串中的部分文本   | `REPLACE('Hello', 'l', 'L')` | 'HeLLo'         |
+
+### 高级函数
+
+<!--rehype:wrap-class=col-span-3 -->
+
+| 函数                                | 解释                                               | 示例语法                                                     | 结果                                     |
+| ----------------------------------- | -------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------- |
+| BIN(x)                              | 返回 x 的二进制编码，x 为十进制数。                | `BIN(2)`                                                     | `10`                                     |
+| BINARY(s)                           | 将字符串 s 转换为二进制字符串。                    | `BINARY 'RUNOOB'`                                            | `'RUNOOB'`（显示效果，实际存储为二进制） |
+| CASE                                | 复合条件函数，根据条件返回不同结果。               | `CASE WHEN 1 > 0 THEN '1 > 0' WHEN 2 > 0 THEN '2 > 0' ELSE '3 > 0' END` | `'1 > 0'`                                |
+| CAST(x AS type)                     | 转换数据类型。                                     | `CAST('2017-08-29' AS DATE)`                                 | `2017-08-29`                             |
+| COALESCE(expr1, expr2, ..., expr_n) | 返回第一个非空表达式的值。                         | `COALESCE(NULL, NULL, 'runoob.com', NULL, 'google.com')`     | `'runoob.com'`                           |
+| CONNECTION_ID()                     | 返回当前连接的唯一ID。                             | `CONNECTION_ID()`                                            | `4292835`（示例值）                      |
+| CONV(x, f1, f2)                     | 将 f1 进制数转换为 f2 进制数。                     | `CONV(15, 10, 2)`                                            | `1111`                                   |
+| CONVERT(s USING cs)                 | 转换字符串 s 的字符集为 cs。                       | `CHARSET(CONVERT('ABC' USING gbk))`                          | `gbk`                                    |
+| CURRENT_USER()                      | 返回当前用户。                                     | `CURRENT_USER()`                                             | `guest@%`                                |
+| DATABASE()                          | 返回当前数据库名。                                 | `DATABASE()`                                                 | `runoob`                                 |
+| IF(expr, v1, v2)                    | 条件表达式，expr 为真则 v1，否则 v2。              | `IF(1 > 0, '正确', '错误')`                                  | `'正确'`                                 |
+| IFNULL(v1, v2)                      | 如果 v1 不为 NULL，则返回 v1，否则返回 v2。        | `IFNULL(NULL, 'Hello Word')`                                 | `'Hello Word'`                           |
+| ISNULL(expression)                  | 判断表达式是否为 NULL。                            | `ISNULL(NULL)`                                               | `1`                                      |
+| LAST_INSERT_ID()                    | 返回最近生成的 AUTO_INCREMENT 值。                 | `LAST_INSERT_ID()`                                           | `6`（示例值）                            |
+| NULLIF(expr1, expr2)                | 若 expr1 等于 expr2，则返回 NULL，否则返回 expr1。 | `NULLIF(25, 25)`                                             | `NULL`                                   |
 
 另见
 ---

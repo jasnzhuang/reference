@@ -295,19 +295,25 @@ server {
 server {
   listen 443 ssl http2;
   server_name example.com;
-  ssl on;
 
   ssl_certificate /path/to/cert.pem;
   ssl_certificate_key /path/to/privkey.pem;
-
-  ssl_stapling on;
-  ssl_stapling_verify on;
-  ssl_trusted_certificate /path/to/fullchain.pem;
-
-  ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+ 
+  # 优化 SSL 配置
+  ssl_protocols TLSv1.2 TLSv1.3;  # 禁用旧版 TLS
+  ssl_prefer_server_ciphers on;
+  ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256';
   ssl_session_timeout 1d;
-  ssl_session_cache shared:SSL:50m;
-  add_header Strict-Transport-Security max-age=15768000;
+  ssl_session_cache shared:SSL:10m;
+
+  # 其他配置（如根目录、代理等）
+  root /var/www/html;
+  index index.html;
+
+  location / {
+      try_files $uri $uri/ =404;
+  }
+ 
 }
 ```
 
@@ -889,6 +895,89 @@ add_header X-Robots-Tag "noindex";
 
 location = /robots.txt {
   return 200 "User-agent: *\nDisallow: /\n";
+}
+```
+
+### 获取请求ip
+<!--rehype:wrap-class=col-span-3-->
+
+```nginx
+server {
+  listen 80;
+  server_name xxx.top;
+
+  location / {
+    access_log /data/logs/nginx/json_ip.log json;
+    proxy_set_header Host $http_host;
+        proxy_set_header X-Real-Ip $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_pass http://127.0.0.1:9999;
+  }
+}
+
+server {
+  listen 9999;
+
+  location / {
+    access_log off;
+    default_type application/json;
+    return 200 "{\"ip\":\"$http_X_Real_Ip\"}";
+  }
+}
+```
+
+### 判断请求参数
+<!--rehype:wrap-class=col-span-3-->
+
+```nginx
+# 判断多个参数示例
+set $flagts 0;
+if ( $arg_aaa ~ "^aaa" ) {
+    set $flagts "${flagts}1";
+}
+if ( $arg_bbb ~ "^bbb" ) {
+    set $flagts "${flagts}1";
+}
+if ( $flagts = "011" ) {
+    return 200;
+}
+```
+
+### 流量镜像配置
+<!--rehype:wrap-class=col-span-3-->
+
+```nginx
+server {
+    listen       80;
+    server_name 192.168.1.1;
+
+    location = /mirror1 {
+        internal;
+        #### address1 ####
+        proxy_set_header Host mirror1.com;
+        proxy_pass http://127.0.0.1:8008/api/service/list;
+    }
+
+    location = /mirror2 {
+        internal;
+        #### address2 ####
+        proxy_set_header Host mirror2.com;
+        proxy_pass http://127.0.0.1:8009/api/service/list;
+    }
+
+    # 只转发这个接口
+    location /api/service/list {
+        access_log /data/logs/nginx/json_test_to_mirror.log json;
+        mirror /mirror1;
+        mirror /mirror2;
+        proxy_pass http://127.0.0.1:8007;
+    }
+
+    location / {
+        access_log /data/logs/nginx/json_test.log json;
+        proxy_pass http://192.168.1.1:8007;
+    }
+
 }
 ```
 

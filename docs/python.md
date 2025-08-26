@@ -1394,6 +1394,34 @@ print(Yoki.legs) # => 4
 Yoki.sound()     # => Woof!
 ```
 
+### 属性封装与访问控制
+
+实现计算属性、只读属性和验证逻辑。
+
+```python
+class Person:
+    def __init__(self, age):
+        self._age = age  # 约定：_age 为内部属性
+
+    @property
+    def age(self):
+        """获取年龄的方法，伪装成属性"""
+        return self._age
+
+    @age.setter
+    def age(self, value):
+        """设置年龄的方法，添加验证逻辑"""
+        if value < 0:
+            raise ValueError("年龄不能为负数")
+        self._age = value
+
+# 使用示例
+p = Person(30)
+print(p.age)  # 直接访问属性，无需括号 → 30
+p.age = 31    # 赋值操作调用 @age.setter → 验证通过
+p.age = -5    # 抛出 ValueError: 年龄不能为负数
+```
+
 Python 数据模型
 --------
 
@@ -1814,10 +1842,89 @@ finally:                 # 在所有情况下执行
     print("我们可以在这里清理资源")
 ```
 
+### 高阶函数map
+
+将一个函数应用到可迭代对象（如列表）的每个元素上，并返回一个新的迭代器。
+
+```python
+def square(x):
+    return x ** 2
+
+使用 map 函数
+numbers = [1, 2, 3, 4]
+result = map(square, numbers)
+
+转换为列表查看结果
+print(list(result))  # 输出: [1, 4, 9, 16]
+```
+
+### 高阶函数sorted
+
+对可迭代对象进行排序，返回一个新的已排序列表（原对象不变）
+
+```python
+# 按照分数排序
+users = [
+    {"name": "Alice", "score": 95, "time": "2023-01-15 10:30:00"},
+    {"name": "Bob", "score": 88, "time": "2023-01-15 09:45:00"},
+    {"name": "Charlie", "score": 95, "time": "2023-01-14 15:20:00"},
+    {"name": "David", "score": 85, "time": "2023-01-16 11:10:00"}
+]
+# reverse=True代表降序排序
+sorted_users = sorted(users, key=lambda x: x["score"], reverse=True)
+
+# 输出结果
+for user in sorted_users:
+    print(f"{user['name']}: {user['score']}")
+
+# 结果：
+# Alice: 95
+# Charlie: 95
+# Bob: 88
+# David: 85
+```
+
+### 高阶函数reduce
+
+将一个二元函数（接受两个参数的函数）累积应用到可迭代对象的元素上，最终合并为单个值
+
+```python
+from functools import reduce
+
+# 定义一个乘法函数
+def multiply(x, y):
+    return x * y
+
+# 使用 reduce 函数
+numbers = [2, 3, 4, 5]
+result = reduce(multiply, numbers)
+
+print(result)  # 输出: 120（2×3×4×5=120）
+```
+
+### 偏函数
+
+固定原函数的某些参数，生成新函数
+
+```python
+from functools import partial
+
+# 原函数：计算 x 的 y 次幂
+def power(x, y):
+    return x ** y
+
+# 创建偏函数，固定 y=2（即平方函数）
+square = partial(power, y=2)
+
+# 调用偏函数
+print(square(5))  # 输出: 25 (5²)
+print(square(10)) # 输出: 100 (10²)
+```
+
 ### pyenv & pipenv
 <!--rehype:wrap-class=col-span-3-->
 
-pvenv 用于管理python版本，pipenv 用于管理项目包版本
+pyenv 用于管理python版本，pipenv 用于管理项目包版本
 
 #### pyenv
 
@@ -1829,13 +1936,21 @@ curl https://pyenv.run | bash
 [更多安装方式](https://github.com/pyenv/pyenv#installation)
 
 ```shell
+# 查看 pyenv 可以安装的 python 版本列表
+pyenv install -l
+# 按照 3.10 的前缀显示 python 的最新版本
+pyenv latest 3.10
+
 # 安装 python 版本
-pyenv install 3.10.12
+pyenv install 3.10.14
+
+# 查看已安装的 python 版本
+pyenv versions
 
 # 设置 python 版本
-pyenv global 3.10.12 # 全局设置
-pyenv shell  3.10.12 # 针对当前 shell session
-pyenv local  3.10.12 # 针对当前目录 
+pyenv global 3.10.14 # 全局设置
+pyenv shell  3.10.14 # 针对当前 shell session
+pyenv local  3.10.14 # 针对当前目录 
 ```
 
 #### pipenv
